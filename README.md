@@ -21,8 +21,6 @@ The IP30SLAVE server will temporarily running on IP address 172.23.57.29, provid
   - Assets/Inventory management
   - Employee management
   - Attendance management
-
-## New features
 - Company forum/blog system
 
 ## Architecture considerations
@@ -30,3 +28,39 @@ The IP30SLAVE server will temporarily running on IP address 172.23.57.29, provid
 - Unified link structure
 - Modular service architecture
 - Scalable and maintainable design
+- Caddy as reverse proxy and TLS termination
+
+### Base Services
+
+- LDAP
+    Use LLDAP for LDAP authentication
+  - lldap
+    https://github.com/lldap/lldap
+
+- OIDC
+   - Dex
+    https://github.com/dexidp/dex
+
+- Mailserver
+   - https://github.com/docker-mailserver/docker-mailserver
+
+### Configuration Management Services
+- SVN
+   - Apache Subversion with mod_dav_svn, LLDAP authentication, and SMTP commit notifications
+   Other svn server references:
+      https://github.com/talisych/svn-server
+      https://github.com/garethflowers/docker-svn-server
+
+- GitLab
+   - https://github.com/sameersbn/docker-gitlab
+   Other GitLab references:
+      https://github.com/gitlabhq/gitlabhq
+
+### Collaboration and Knowledge Management Services
+
+- Outline
+   - https://github.com/outline/outline
+
+## Deployment Records
+
+See [service deployment records](docs/services/README.md) for per-service deployment and retirement history.

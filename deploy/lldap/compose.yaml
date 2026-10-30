@@ -1,0 +1,50 @@
+name: ip30-base-services
+
+services:
+  lldap:
+    image: lldap/lldap:stable
+    container_name: ip30-lldap-candidate
+    hostname: lldap-candidate
+    restart: unless-stopped
+    environment:
+      LLDAP_JWT_SECRET: ${LLDAP_JWT_SECRET:?Set LLDAP_JWT_SECRET}
+      LLDAP_KEY_SEED: ${LLDAP_KEY_SEED:?Set LLDAP_KEY_SEED}
+      LLDAP_LDAP_BASE_DN: dc=agigactu,dc=com
+      LLDAP_LDAP_USER_DN: admin
+      LLDAP_LDAP_USER_PASS: ${LLDAP_ADMIN_PASSWORD:?Set LLDAP_ADMIN_PASSWORD}
+      LLDAP_HTTP_URL: ${LLDAP_HTTP_URL:?Set LLDAP_HTTP_URL}
+      LLDAP_SMTP_OPTIONS__ENABLE_PASSWORD_RESET: "true"
+      LLDAP_SMTP_OPTIONS__SERVER: mailserver
+      LLDAP_SMTP_OPTIONS__PORT: "25"
+      LLDAP_SMTP_OPTIONS__SMTP_ENCRYPTION: NONE
+      LLDAP_SMTP_OPTIONS__FROM: "LLDAP <postmaster@agigactu.com>"
+    ports:
+      - "0.0.0.0:13890:3890"
+      - "0.0.0.0:17170:17170"
+    volumes:
+      - lldap-data:/data
+    networks:
+      - lldap-mail
+      - lldap-apps
+
+  lldap-path-proxy:
+    image: nginx:alpine
+    container_name: ip30-lldap-path-proxy-candidate
+    restart: unless-stopped
+    depends_on:
+      - lldap
+    expose:
+      - "8080"
+    volumes:
+      - ./lldap-path-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - lldap-apps
+
+volumes:
+  lldap-data:
+
+networks:
+  lldap-mail:
+    name: ip30-lldap-mail
+  lldap-apps:
+    name: ip30-lldap-apps

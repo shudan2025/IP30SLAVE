@@ -1,0 +1,49 @@
+name: ip30-base-services
+
+services:
+  mailserver:
+    image: ghcr.io/docker-mailserver/docker-mailserver:latest
+    container_name: ip30-mailserver-candidate
+    hostname: mail.agigactu.com
+    domainname: agigactu.com
+    restart: unless-stopped
+    stop_grace_period: 1m
+    environment:
+      OVERRIDE_HOSTNAME: mail.agigactu.com
+      POSTMASTER_ADDRESS: postmaster@agigactu.com
+      PERMIT_DOCKER: connected-networks
+      TLS_LEVEL: modern
+      SSL_TYPE: self-signed
+      SPOOF_PROTECTION: "1"
+      ENABLE_OPENDKIM: "1"
+      ENABLE_OPENDMARC: "1"
+      ENABLE_CLAMAV: "0"
+      ENABLE_FAIL2BAN: "0"
+      ENABLE_UPDATE_CHECK: "0"
+    ports:
+      - "0.0.0.0:2525:25"
+      - "0.0.0.0:1143:143"
+      - "0.0.0.0:1465:465"
+      - "0.0.0.0:1587:587"
+      - "0.0.0.0:1993:993"
+    volumes:
+      - mail-data:/var/mail
+      - mail-state:/var/mail-state
+      - mail-logs:/var/log/mail
+      - mail-config:/tmp/docker-mailserver
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      lldap-mail:
+        aliases:
+          - mail.agigactu.com
+
+volumes:
+  mail-data:
+  mail-state:
+  mail-logs:
+  mail-config:
+
+networks:
+  lldap-mail:
+    external: true
+    name: ip30-lldap-mail

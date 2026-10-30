@@ -1,0 +1,30 @@
+name: ip30-dex-candidate
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: ip30-caddy-candidate
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:${DEX_HTTPS_PORT:-18084}:5556"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./index.html:/srv/index.html:ro
+      - ./unregister-outline-sw.js:/srv/unregister-outline-sw.js:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - lldap-apps
+
+volumes:
+  caddy-data:
+    name: ip30-dex-caddy-data
+  caddy-config:
+    name: ip30-dex-caddy-config
+
+networks:
+  lldap-apps:
+    external: true
+    name: ip30-lldap-apps

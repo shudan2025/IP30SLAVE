@@ -1,0 +1,138 @@
+name: ip30-dev-services
+
+services:
+  redis:
+    image: redis:7
+    container_name: ip30-gitlab-redis-candidate
+    restart: unless-stopped
+    command: ["redis-server", "--loglevel", "warning"]
+    volumes:
+      - gitlab-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - dev-internal
+
+  postgresql:
+    image: postgres:17
+    container_name: ip30-gitlab-postgresql-candidate
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_locks_per_transaction=1024"]
+    environment:
+      POSTGRES_USER: gitlab
+      POSTGRES_PASSWORD: ${GITLAB_DB_PASSWORD:?Set GITLAB_DB_PASSWORD}
+      POSTGRES_DB: gitlabhq_production
+    volumes:
+      - gitlab-postgresql-data:/var/lib/postgresql/data
+      - ./postgres/initdb.sql:/docker-entrypoint-initdb.d/10-gitlab-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitlab -d gitlabhq_production"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - dev-internal
+
+  gitlab:
+    image: sameersbn/gitlab:19.5.1
+    container_name: ip30-gitlab-candidate
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+    environment:
+      DB_ADAPTER: postgresql
+      DB_HOST: postgresql
+      DB_PORT: "5432"
+      DB_USER: gitlab
+      DB_PASS: ${GITLAB_DB_PASSWORD:?Set GITLAB_DB_PASSWORD}
+      DB_NAME: gitlabhq_production
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      TZ: Asia/Shanghai
+      GITLAB_TIMEZONE: Asia/Shanghai
+      GITLAB_HOST: ${GITLAB_HOST:?Set GITLAB_HOST}
+      GITLAB_PORT: "443"
+      GITLAB_SSH_PORT: "10022"
+      GITLAB_HTTPS: "true"
+      GITLAB_RELATIVE_URL_ROOT: /gitlab
+      SSL_SELF_SIGNED: "true"
+      GITLAB_ROOT_PASSWORD: ${GITLAB_ROOT_PASSWORD:?Set GITLAB_ROOT_PASSWORD}
+      GITLAB_ROOT_EMAIL: postmaster@agigactu.com
+      GITLAB_SIGNUP_ENABLED: "false"
+      GITLAB_EMAIL: postmaster@agigactu.com
+      GITLAB_EMAIL_REPLY_TO: postmaster@agigactu.com
+      GITLAB_BACKUP_SCHEDULE: disable
+      GITLAB_SECRETS_DB_KEY_BASE: ${GITLAB_SECRETS_DB_KEY_BASE:?Set GITLAB_SECRETS_DB_KEY_BASE}
+      GITLAB_SECRETS_SECRET_KEY_BASE: ${GITLAB_SECRETS_SECRET_KEY_BASE:?Set GITLAB_SECRETS_SECRET_KEY_BASE}
+      GITLAB_SECRETS_OTP_KEY_BASE: ${GITLAB_SECRETS_OTP_KEY_BASE:?Set GITLAB_SECRETS_OTP_KEY_BASE}
+      GITLAB_SECRETS_ENCRYPTED_SETTINGS_KEY_BASE: ${GITLAB_SECRETS_ENCRYPTED_SETTINGS_KEY_BASE:?Set GITLAB_SECRETS_ENCRYPTED_SETTINGS_KEY_BASE}
+      GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY: ${GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY:?Set GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}
+      GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY: ${GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY:?Set GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}
+      GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT: ${GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT:?Set GITLAB_SECRETS_ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}
+      LDAP_ENABLED: "true"
+      LDAP_LABEL: LLDAP
+      LDAP_HOST: lldap
+      LDAP_PORT: "3890"
+      LDAP_METHOD: plain
+      LDAP_UID: mail
+      LDAP_BIND_DN: ${LDAP_BIND_DN:?Set LDAP_BIND_DN}
+      LDAP_PASS: ${LDAP_BIND_PASSWORD:?Set LDAP_BIND_PASSWORD}
+      LDAP_BASE: ou=people,dc=agigactu,dc=com
+      LDAP_ALLOW_USERNAME_OR_EMAIL_LOGIN: "false"
+      LDAP_ACTIVE_DIRECTORY: "false"
+      OAUTH_ENABLED: "true"
+      OAUTH_ALLOW_SSO: openid_connect
+      OAUTH_BLOCK_AUTO_CREATED_USERS: "false"
+      OAUTH_AUTO_LINK_LDAP_USER: "true"
+      OAUTH_OIDC_ISSUER: ${DEX_OIDC_ISSUER:?Set DEX_OIDC_ISSUER}
+      OAUTH_OIDC_CLIENT_ID: ${GITLAB_OIDC_CLIENT_ID:?Set GITLAB_OIDC_CLIENT_ID}
+      OAUTH_OIDC_CLIENT_SECRET: ${GITLAB_OIDC_CLIENT_SECRET:?Set GITLAB_OIDC_CLIENT_SECRET}
+      OAUTH_OIDC_REDIRECT_URI: ${GITLAB_OIDC_REDIRECT_URI:?Set GITLAB_OIDC_REDIRECT_URI}
+      OAUTH_OIDC_LABEL: "Dex (LLDAP)"
+      OAUTH_OIDC_SCOPE: "['openid','profile','email']"
+      OAUTH_OIDC_UID_FIELD: preferred_username
+      OAUTH_OIDC_DISCOVERY: "true"
+      OAUTH_OIDC_CLIENT_AUTH_METHOD: basic
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates-dex.pem
+      SMTP_ENABLED: "true"
+      SMTP_DOMAIN: agigactu.com
+      SMTP_HOST: mailserver
+      SMTP_PORT: "25"
+      SMTP_STARTTLS: "false"
+    ports:
+      - "0.0.0.0:18080:80"
+      - "0.0.0.0:10022:22"
+    volumes:
+      - gitlab-data:/home/git/data
+      - type: bind
+        source: ../caddy/ca-bundle.pem
+        target: /etc/ssl/certs/ca-certificates-dex.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - dev-internal
+      - lldap-apps
+      - lldap-mail
+
+volumes:
+  gitlab-redis-data:
+  gitlab-postgresql-data:
+  gitlab-data:
+
+networks:
+  dev-internal:
+    internal: true
+    name: ip30-dev-services_dev-internal
+  lldap-apps:
+    external: true
+    name: ip30-lldap-apps
+  lldap-mail:
+    external: true
+    name: ip30-lldap-mail

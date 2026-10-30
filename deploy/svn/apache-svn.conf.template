@@ -1,0 +1,25 @@
+<VirtualHost *:80>
+    ServerName svn.internal
+    ServerAdmin postmaster@agigactu.com
+    AllowEncodedSlashes NoDecode
+    ErrorLog /proc/self/fd/2
+    CustomLog /proc/self/fd/1 combined
+    LogLevel warn
+
+    <Location /svn>
+        DAV svn
+        SVNParentPath /var/svn
+        SVNListParentPath On
+
+        AuthType Basic
+        AuthName "IP30 Subversion"
+        AuthBasicProvider ldap
+        AuthLDAPURL "ldap://lldap:3890/ou=people,dc=agigactu,dc=com?mail,uid?sub?(objectClass=person)" NONE
+        AuthLDAPBindDN "@@SVN_LDAP_BIND_DN@@"
+        AuthLDAPBindPassword "@@SVN_LDAP_BIND_PASSWORD@@"
+        AuthLDAPRemoteUserAttribute uid
+        AuthLDAPRemoteUserIsDN Off
+        AuthzSVNAccessFile /etc/subversion/authz
+        Require valid-user
+    </Location>
+</VirtualHost>

@@ -1,0 +1,21 @@
+name: ip30-dex-candidate
+
+services:
+  dex:
+    image: ghcr.io/dexidp/dex:v2.46.1
+    container_name: ip30-dex-candidate
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/etc/dex/config.yaml:ro
+      - dex-data:/var/dex
+    networks:
+      - lldap-apps
+
+volumes:
+  dex-data:
+
+networks:
+  lldap-apps:
+    external: true
+    name: ip30-lldap-apps

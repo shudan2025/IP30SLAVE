@@ -1,0 +1,38 @@
+name: ip30-dev-services
+
+services:
+  svn:
+    image: ip30-svn-apache-ldap:1.0.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ip30-svn-candidate
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      SVN_LDAP_BIND_DN: ${LDAP_BIND_DN:?Set LDAP_BIND_DN}
+      SVN_LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:?Set LDAP_BIND_PASSWORD}
+      SVN_NOTIFICATION_TO: ${SVN_NOTIFICATION_TO:-postmaster@agigactu.com}
+      SVN_NOTIFICATION_FROM: ${SVN_NOTIFICATION_FROM:-postmaster@agigactu.com}
+      SVN_SMTP_HOST: mailserver
+      SVN_SMTP_PORT: "25"
+    volumes:
+      - svn-data:/var/svn
+      - ./authz:/etc/subversion/authz:ro
+      - ../caddy/caddy-root.crt:/run/certs/caddy-root.crt:ro
+    networks:
+      - lldap-apps
+      - lldap-mail
+
+volumes:
+  svn-data:
+    name: ip30-svn-data
+
+networks:
+  lldap-apps:
+    external: true
+    name: ip30-lldap-apps
+  lldap-mail:
+    external: true
+    name: ip30-lldap-mail

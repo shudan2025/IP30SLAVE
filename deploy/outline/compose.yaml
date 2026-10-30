@@ -1,0 +1,105 @@
+name: ip30-outline-candidate
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: ip30-outline-postgresql-candidate
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: outline
+      POSTGRES_PASSWORD: ${OUTLINE_DB_PASSWORD:?Set OUTLINE_DB_PASSWORD}
+      POSTGRES_DB: outline
+    volumes:
+      - outline-postgresql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outline -d outline"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default
+
+  redis:
+    image: redis:7
+    container_name: ip30-outline-redis-candidate
+    restart: unless-stopped
+    command: ["redis-server", "--loglevel", "warning"]
+    volumes:
+      - outline-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - default
+
+  outline:
+    image: ip30-outline-path:1.12.0-r1
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        OUTLINE_TAG: v1.12.0
+        OUTLINE_COMMIT: 09f11188b87b0220fa318dfa6fdd0fa9772195dd
+    container_name: ip30-outline-candidate
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NODE_EXTRA_CA_CERTS: /run/certs/dex-caddy-root.crt
+      URL: ${OUTLINE_URL:?Set OUTLINE_URL}
+      PORT: "3000"
+      SECRET_KEY: ${OUTLINE_SECRET_KEY:?Set OUTLINE_SECRET_KEY}
+      UTILS_SECRET: ${OUTLINE_UTILS_SECRET:?Set OUTLINE_UTILS_SECRET}
+      DATABASE_URL: postgresql://outline:${OUTLINE_DB_PASSWORD:?Set OUTLINE_DB_PASSWORD}@postgres:5432/outline
+      PGSSLMODE: disable
+      REDIS_URL: redis://redis:6379
+      FILE_STORAGE: local
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+      FORCE_HTTPS: "false"
+      OIDC_ISSUER_URL: ${DEX_OIDC_ISSUER:?Set DEX_OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OUTLINE_OIDC_CLIENT_ID:?Set OUTLINE_OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OUTLINE_OIDC_CLIENT_SECRET:?Set OUTLINE_OIDC_CLIENT_SECRET}
+      OIDC_USERNAME_CLAIM: preferred_username
+      OIDC_DISPLAY_NAME: Dex (LLDAP)
+      OIDC_SCOPES: openid profile email
+      OIDC_DISABLE_REDIRECT: "true"
+      SMTP_HOST: mailserver
+      SMTP_PORT: "25"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: "Outline <postmaster@agigactu.com>"
+      SMTP_SECURE: "false"
+      SMTP_DISABLE_STARTTLS: "true"
+    ports:
+      - "0.0.0.0:18082:3000"
+    volumes:
+      - outline-file-data:/var/lib/outline/data
+      - type: bind
+        source: ../caddy/caddy-root.crt
+        target: /run/certs/dex-caddy-root.crt
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - default
+      - lldap-mail
+      - lldap-apps
+
+volumes:
+  outline-postgresql-data:
+  outline-redis-data:
+  outline-file-data:
+
+networks:
+  lldap-mail:
+    external: true
+    name: ip30-lldap-mail
+  lldap-apps:
+    external: true
+    name: ip30-lldap-apps
